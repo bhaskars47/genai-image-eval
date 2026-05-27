@@ -1,0 +1,37 @@
+# BLAST Evaluation Framework — Python dependencies
+# Install with: pip install -r requirements.txt
+#
+# Notes:
+#   - onnxruntime (not onnxruntime-gpu) for CPU-only execution
+#   - open_clip_torch pulls in torch automatically
+#   - insightface downloads buffalo_l model weights on first run (~300MB)
+#   - open_clip downloads ViT-L/14 weights on first run (~890MB)
+
+# Core ML
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Face detection + ArcFace embeddings
+insightface>=0.7.3
+onnxruntime>=1.17.0        # CPU inference backend for InsightFace
+
+# CLIP embeddings
+open_clip_torch>=2.24.0
+
+# Image processing
+Pillow>=10.0.0
+numpy>=1.24.0
+opencv-python-headless>=4.8.0   # headless = no GUI deps, fine for batch
+
+# Gemini image generation (google-genai replaces deprecated google-generativeai)
+google-genai>=0.8.0
+
+# OpenAI image generation (gpt-image-1 via images.edit)
+openai>=1.0.0
+
+# BLIP-VQA (artifact, safety, style evaluators)
+# Salesforce/blip-vqa-base — ~450MB download on first run, no system deps
+# Works with Python 3.13+ and any recent transformers version.
+transformers>=4.15.0
+
+# No FastAPI, no database — batch/offline mode only

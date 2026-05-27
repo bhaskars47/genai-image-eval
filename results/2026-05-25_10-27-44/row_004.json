@@ -1,0 +1,54 @@
+{
+  "id": "row_004",
+  "prompt": "A royal warrior portrait in golden armor",
+  "llm_used": "OpenAI",
+  "identity_image": "/Users/bhaskar.srivastava/Documents/Deepeval/referenceimages/refimage2.jpg",
+  "generated_image": "/Users/bhaskar.srivastava/Documents/Deepeval/outputimage/outputimage4.png",
+  "face_similarity": {
+    "score": 0.5908,
+    "status": "acceptable",
+    "model": "insightface/buffalo_l",
+    "model_version": "1.0",
+    "faces_found_in_generated": 1,
+    "error": null
+  },
+  "prompt_adherence": {
+    "score": 0.2888,
+    "status": "pass",
+    "model": "openclip/ViT-B-32",
+    "model_version": "openai",
+    "clip_truncated": false,
+    "token_count": 9,
+    "error": null
+  },
+  "quality": {
+    "blur_score": 658.85,
+    "blur_status": "sharp",
+    "resolution_width": 1792,
+    "resolution_height": 2390,
+    "resolution_status": "good",
+    "overall_status": "pass",
+    "error": null
+  },
+  "artifact": {
+    "overall_status": "pass",
+    "flagged_categories": [],
+    "category_scores": {
+      "hands_fingers": 0.0261,
+      "face_structure": 0.0397,
+      "eyes": 0.0156
+    },
+    "error": null
+  },
+  "safety": {
+    "overall_status": "safe",
+    "flagged_categories": [],
+    "category_scores": {
+      "nsfw": 0.0067,
+      "violence": 0.026,
+      "harmful": 0.0246
+    },
+    "error": null
+  },
+  "evaluated_at": "2026-05-25T10:27:57.807627+00:00"
+}

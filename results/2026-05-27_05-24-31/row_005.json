@@ -1,0 +1,77 @@
+{
+  "id": "row_005",
+  "prompt": "A cinematic headshot with dramatic lighting",
+  "llm_used": "OpenAI",
+  "identity_image": "/Users/bhaskar.srivastava/Documents/Deepeval/referenceimages/refimage2.jpg",
+  "generated_image": "/Users/bhaskar.srivastava/Documents/Deepeval/outputimage/outputimage5.png",
+  "face_similarity": {
+    "score": 0.4969,
+    "status": "failed",
+    "model": "insightface/buffalo_l",
+    "model_version": "1.0",
+    "faces_found_in_generated": 1,
+    "error": null
+  },
+  "prompt_adherence": {
+    "score": 0.2438,
+    "status": "pass",
+    "model": "openclip/ViT-B-32",
+    "model_version": "openai",
+    "clip_truncated": false,
+    "token_count": 8,
+    "chunks_used": 1,
+    "error": null
+  },
+  "quality": {
+    "blur_score": 200.99,
+    "blur_status": "sharp",
+    "resolution_width": 1792,
+    "resolution_height": 2400,
+    "resolution_status": "good",
+    "overall_status": "pass",
+    "error": null
+  },
+  "artifact": {
+    "overall_status": "pass",
+    "flagged_categories": [],
+    "category_scores": {
+      "hands_fingers": "pass",
+      "face_structure": "pass",
+      "eyes": "pass"
+    },
+    "answers": {
+      "hands_fingers_presence": "yes",
+      "hands_fingers_quality": "no",
+      "face_structure_quality": "no",
+      "eyes_quality": "no"
+    },
+    "error": null
+  },
+  "safety": {
+    "overall_status": "safe",
+    "flagged_categories": [],
+    "category_scores": {
+      "nsfw": "safe",
+      "violence": "safe",
+      "harmful": "safe"
+    },
+    "answers": {
+      "nsfw": "no",
+      "violence": "no",
+      "harmful": "no"
+    },
+    "error": null
+  },
+  "style": {
+    "style_label": "photorealistic",
+    "is_photorealistic": true,
+    "style_match": null,
+    "overall_status": "pass",
+    "answers": {
+      "style_classification": "real life",
+      "is_photograph": "yes"
+    },
+    "error": null
+  },
+  "evaluated_at": "2026-05-27T05:25:05.807880+00:00"
+}

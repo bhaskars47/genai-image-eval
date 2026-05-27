@@ -1,0 +1,25 @@
+{
+  "id": "row_006",
+  "prompt": "An anime-style character portrait",
+  "llm_used": "OpenAI",
+  "identity_image": "/Users/bhaskar.srivastava/Documents/Deepeval/referenceimages/refimage2.jpg",
+  "generated_image": "/Users/bhaskar.srivastava/Documents/Deepeval/outputimage/outputimage6.png",
+  "face_similarity": {
+    "score": null,
+    "status": "no_face_detected",
+    "model": "insightface/buffalo_l",
+    "model_version": "1.0",
+    "faces_found_in_generated": 0,
+    "error": "No face detected in generated image"
+  },
+  "prompt_adherence": {
+    "score": 0.2643,
+    "status": "pass",
+    "model": "openclip/ViT-B-32",
+    "model_version": "openai",
+    "clip_truncated": false,
+    "token_count": 8,
+    "error": null
+  },
+  "evaluated_at": "2026-05-25T06:38:33.896252+00:00"
+}

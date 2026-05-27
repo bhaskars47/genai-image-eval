@@ -1,0 +1,25 @@
+{
+  "id": "row_003",
+  "prompt": "An anime-style character portrait",
+  "llm_used": "Gemini",
+  "identity_image": "/Users/bhaskar.srivastava/Documents/Deepeval/referenceimages/refimage1.png",
+  "generated_image": "/Users/bhaskar.srivastava/Documents/Deepeval/outputimage/outputimage3.png",
+  "face_similarity": {
+    "score": 0.4111,
+    "status": "failed",
+    "model": "insightface/buffalo_l",
+    "model_version": "1.0",
+    "faces_found_in_generated": 1,
+    "error": null
+  },
+  "prompt_adherence": {
+    "score": 0.2812,
+    "status": "pass",
+    "model": "openclip/ViT-B-32",
+    "model_version": "openai",
+    "clip_truncated": false,
+    "token_count": 8,
+    "error": null
+  },
+  "evaluated_at": "2026-05-25T07:38:15.849026+00:00"
+}

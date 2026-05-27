@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLAST Evaluation Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f9fafb; color: #111827; }
+    .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 32px 40px; }
+    .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    .header p { margin-top: 6px; opacity: 0.8; font-size: 14px; }
+    .body { padding: 32px 40px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; }
+    .card .label { font-size: 12px; color: #6b7280; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card .value { font-size: 28px; font-weight: 700; color: #1e3a5f; margin-top: 4px; }
+    .card .sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .section-title { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; }
+    .breakdown { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 32px; }
+    .breakdown-block { background: white; border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; min-width: 220px; }
+    .breakdown-block h3 { font-size: 13px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .breakdown-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+    .breakdown-row .count { font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; }
+    thead { background: #f3f4f6; }
+    th { padding: 12px 14px; text-align: left; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+    td { padding: 14px; border-top: 1px solid #f3f4f6; vertical-align: middle; font-size: 13px; }
+    tr:hover td { background: #f9fafb; }
+    .footer { text-align: center; padding: 24px; font-size: 12px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>BLAST Evaluation Report</h1>
+  <p>Identity-Preserving Image Generation · Generated 2026-05-25 11:06 UTC · 1 rows · Models: Gemini</p>
+</div>
+
+<div class="body">
+
+  <!-- Summary cards -->
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Total Rows</div>
+      <div class="value">1</div>
+      <div class="sub">1 evaluated, 0 errors</div>
+    </div>
+    <div class="card">
+      <div class="label">Avg Face Score</div>
+      <div class="value">0.0346</div>
+      <div class="sub">ArcFace cosine similarity</div>
+    </div>
+    <div class="card">
+      <div class="label">Avg CLIP Score</div>
+      <div class="value">0.2091</div>
+      <div class="sub">Prompt adherence</div>
+    </div>
+    <div class="card">
+      <div class="label">Face Pass Rate</div>
+      <div class="value">0/1</div>
+      <div class="sub">Excellent + Acceptable</div>
+    </div>
+    <div class="card">
+      <div class="label">CLIP Pass Rate</div>
+      <div class="value">1/1</div>
+      <div class="sub">Score ≥ 0.20</div>
+    </div>
+    <div class="card">
+      <div class="label">Quality Pass</div>
+      <div class="value">1/1</div>
+      <div class="sub">Sharp + good resolution</div>
+    </div>
+    <div class="card">
+      <div class="label">Artifacts Flagged</div>
+      <div class="value">0/1</div>
+      <div class="sub">CLIP artifact detection</div>
+    </div>
+    <div class="card">
+      <div class="label">Safety Flagged</div>
+      <div class="value">0/1</div>
+      <div class="sub">NSFW / violence / harmful</div>
+    </div>
+  </div>
+
+  <!-- Breakdown -->
+  <div class="breakdown">
+    <div class="breakdown-block">
+      <h3>Face Similarity</h3>
+      <div class="breakdown-row"><span><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Excellent</span></span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Acceptable</span></span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Failed</span></span><span class="count">1</span></div>
+      <div class="breakdown-row"><span><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">No Face</span></span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Error</span></span><span class="count">0</span></div>
+    </div>
+    <div class="breakdown-block">
+      <h3>Prompt Adherence</h3>
+      <div class="breakdown-row"><span><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Pass</span></span><span class="count">1</span></div>
+      <div class="breakdown-row"><span><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Marginal</span></span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Fail</span></span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Error</span></span><span class="count">0</span></div>
+    </div>
+    <div class="breakdown-block">
+      <h3>Quality</h3>
+      <div class="breakdown-row"><span><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Pass</span></span><span class="count">1</span></div>
+      <div class="breakdown-row"><span><span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Fail</span></span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Error</span></span><span class="count">0</span></div>
+    </div>
+    <div class="breakdown-block">
+      <h3>Artifacts</h3>
+      <div class="breakdown-row"><span><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Pass</span></span><span class="count">1</span></div>
+      <div class="breakdown-row"><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Flagged</span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Error</span></span><span class="count">0</span></div>
+    </div>
+    <div class="breakdown-block">
+      <h3>Safety</h3>
+      <div class="breakdown-row"><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Safe</span><span class="count">1</span></div>
+      <div class="breakdown-row"><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Flagged</span><span class="count">0</span></div>
+      <div class="breakdown-row"><span><span style="background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Error</span></span><span class="count">0</span></div>
+    </div>
+    <div class="breakdown-block">
+      <h3>Thresholds Used</h3>
+      <div class="breakdown-row"><span style="font-size:12px">Face excellent</span><span class="count" style="font-size:12px">≥ 0.75</span></div>
+      <div class="breakdown-row"><span style="font-size:12px">Face acceptable</span><span class="count" style="font-size:12px">≥ 0.55</span></div>
+      <div class="breakdown-row"><span style="font-size:12px">CLIP pass</span><span class="count" style="font-size:12px">≥ 0.20</span></div>
+      <div class="breakdown-row"><span style="font-size:12px">Blur sharp</span><span class="count" style="font-size:12px">≥ 100</span></div>
+      <div class="breakdown-row"><span style="font-size:12px">Artifact/Safety</span><span class="count" style="font-size:12px">diff &gt; −0.05</span></div>
+    </div>
+  </div>
+
+  <!-- Results table -->
+  <div class="section-title">Per-Row Results</div>
+  <div style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Prompt</th>
+        <th style="text-align:center">Reference</th>
+        <th style="text-align:center">Generated</th>
+        <th style="text-align:center">Model</th>
+        <th style="text-align:center">Face Similarity</th>
+        <th style="text-align:center">Prompt Adherence</th>
+        <th style="text-align:center">Quality</th>
+        <th style="text-align:center">Artifacts</th>
+        <th style="text-align:center">Safety</th>
+        <th>Evaluated At</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td style="font-weight:600;white-space:nowrap">row_009</td>
+          <td style="max-width:180px;font-size:12px;color:#374151">Ultra-realistic 1990s flash snapshot portrait of my exact female model "Adèle" with absolute facial identity preservatio…</td>
+          <td style="text-align:center"><img src="file:///Users/bhaskar.srivastava/Documents/Deepeval/referenceimages/refimage4.jpg" alt="reference" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" onerror="this.style.display='none';this.nextSibling.style.display='inline'"><span style="display:none;color:#9ca3af;font-size:11px">Image unavailable</span></td>
+          <td style="text-align:center"><img src="file:///Users/bhaskar.srivastava/Documents/Deepeval/outputimage/outputimage6.png" alt="generated" style="width:90px;height:90px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;" onerror="this.style.display='none';this.nextSibling.style.display='inline'"><span style="display:none;color:#9ca3af;font-size:11px">Image unavailable</span></td>
+          <td style="text-align:center;font-size:12px">Gemini</td>
+          <td style="text-align:center">
+            0.0346<br>
+            <div style="margin-top:4px"><span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Failed</span></div>
+            
+          </td>
+          <td style="text-align:center">
+            0.2091<br>
+            <div style="margin-top:4px"><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Pass</span></div>
+          </td>
+          <td style="text-align:center"><div style="font-size:11px;color:#6b7280">Blur: 392.32<br>1792×2390</div><div style="margin-top:4px"><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Pass</span></div></td>
+          <td style="text-align:center"><div style="font-size:11px;color:#6b7280;margin-bottom:4px">Flagged: none</div><span style="background:#d1fae5;color:#065f46;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Pass</span></td>
+          <td style="text-align:center"><div style="font-size:11px;color:#6b7280;margin-bottom:4px">Flagged: none</div><span style="background:#f3f4f6;color:#6b7280;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">Safe</span></td>
+          <td style="font-size:11px;color:#6b7280;white-space:nowrap">2026-05-25 11:06:26</td>
+        </tr>
+        
+    </tbody>
+  </table>
+  </div>
+
+</div><!-- /.body -->
+
+<div class="footer">
+  BLAST · Face: insightface/buffalo_l · Prompt Adherence + Artifacts + Safety: openclip/ViT-B-32 · Quality: OpenCV Laplacian · Report generated 2026-05-25 11:06 UTC
+</div>
+
+</body>
+</html>

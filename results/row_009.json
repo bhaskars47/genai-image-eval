@@ -1,0 +1,25 @@
+{
+  "id": "row_009",
+  "prompt": "An anime-style character portrait",
+  "llm_used": null,
+  "identity_image": "/Users/bhaskar.srivastava/Documents/Deepeval/referenceimages/refimage3.jpg",
+  "generated_image": "",
+  "face_similarity": {
+    "score": null,
+    "status": "error",
+    "model": null,
+    "model_version": null,
+    "faces_found_in_generated": 0,
+    "error": "generated_image is empty \u2014 image generation likely failed for this row"
+  },
+  "prompt_adherence": {
+    "score": null,
+    "status": "error",
+    "model": null,
+    "model_version": null,
+    "clip_truncated": false,
+    "token_count": null,
+    "error": "generated_image is empty \u2014 image generation likely failed for this row"
+  },
+  "evaluated_at": "2026-05-25T06:01:01.172890+00:00"
+}

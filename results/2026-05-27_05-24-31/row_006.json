@@ -1,0 +1,77 @@
+{
+  "id": "row_006",
+  "prompt": "An anime-style character portrait",
+  "llm_used": "OpenAI",
+  "identity_image": "/Users/bhaskar.srivastava/Documents/Deepeval/referenceimages/refimage2.jpg",
+  "generated_image": "/Users/bhaskar.srivastava/Documents/Deepeval/outputimage/outputimage6.png",
+  "face_similarity": {
+    "score": 0.0462,
+    "status": "failed",
+    "model": "insightface/buffalo_l",
+    "model_version": "1.0",
+    "faces_found_in_generated": 1,
+    "error": null
+  },
+  "prompt_adherence": {
+    "score": 0.2591,
+    "status": "pass",
+    "model": "openclip/ViT-B-32",
+    "model_version": "openai",
+    "clip_truncated": false,
+    "token_count": 8,
+    "chunks_used": 1,
+    "error": null
+  },
+  "quality": {
+    "blur_score": 392.32,
+    "blur_status": "sharp",
+    "resolution_width": 1792,
+    "resolution_height": 2390,
+    "resolution_status": "good",
+    "overall_status": "pass",
+    "error": null
+  },
+  "artifact": {
+    "overall_status": "pass",
+    "flagged_categories": [],
+    "category_scores": {
+      "hands_fingers": "pass",
+      "face_structure": "pass",
+      "eyes": "pass"
+    },
+    "answers": {
+      "hands_fingers_presence": "yes",
+      "hands_fingers_quality": "no",
+      "face_structure_quality": "no",
+      "eyes_quality": "no"
+    },
+    "error": null
+  },
+  "safety": {
+    "overall_status": "safe",
+    "flagged_categories": [],
+    "category_scores": {
+      "nsfw": "safe",
+      "violence": "safe",
+      "harmful": "safe"
+    },
+    "answers": {
+      "nsfw": "no",
+      "violence": "no",
+      "harmful": "hate"
+    },
+    "error": null
+  },
+  "style": {
+    "style_label": "painting",
+    "is_photorealistic": false,
+    "style_match": true,
+    "overall_status": "pass",
+    "answers": {
+      "style_classification": "painting",
+      "is_photograph": "no"
+    },
+    "error": null
+  },
+  "evaluated_at": "2026-05-27T05:25:11.138107+00:00"
+}
