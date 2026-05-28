@@ -102,8 +102,11 @@ class GeminiImageGenerator:
             full_prompt = f"{config.GENERATION_PROMPT_PREFIX}{prompt}"
             logger.info("Generating — model: %s | prompt: %s", config.GENERATION_MODEL, full_prompt)
 
-            # Convert reference image to bytes for the API
-            ref_pil = Image.open(identity_path).convert("RGB")
+            # Convert reference image to bytes for the API.
+            # Context-manager open so the source file handle is closed
+            # before the API call (which may run for tens of seconds).
+            with Image.open(identity_path) as im:
+                ref_pil = im.convert("RGB")
             buf = io.BytesIO()
             ref_pil.save(buf, format="PNG")
             image_bytes = buf.getvalue()
@@ -253,9 +256,12 @@ class OpenAIImageGenerator:
                 config.OPENAI_GENERATION_MODEL, full_prompt
             )
 
-            # OpenAI images.edit requires a PNG file object
-            # Convert to PNG in memory if the source is a JPEG
-            ref_pil = Image.open(identity_path).convert("RGBA")
+            # OpenAI images.edit requires a PNG file object.
+            # Convert to PNG in memory if the source is a JPEG. Use a context
+            # manager so the source file descriptor is released before the API
+            # call (which can run for tens of seconds).
+            with Image.open(identity_path) as im:
+                ref_pil = im.convert("RGBA")
             buf = io.BytesIO()
             ref_pil.save(buf, format="PNG")
             buf.seek(0)

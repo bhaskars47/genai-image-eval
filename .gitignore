@@ -1,0 +1,30 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Editor / OS detritus
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Run outputs (regenerated each run — not source)
+results/
+outputimage/
+
+# Atomic-write artefacts and CSV backups
+*.tmp
+*.bak
+
+# Local secrets (defence in depth — keys should be env vars)
+.env
+.env.*
+!.env.example

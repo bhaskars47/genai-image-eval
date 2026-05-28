@@ -81,7 +81,7 @@ class ArtifactResult:
     overall_status: str         # pass | flagged | error
     flagged_categories: list    # category names that failed
     category_scores: dict       # {category: "pass" | "flagged" | "skipped"}
-    answers: dict               # {category: raw Moondream answer strings}
+    answers: dict               # {category: raw BLIP-VQA answer strings}
     error: Optional[str]
 
     def to_dict(self) -> dict:
@@ -114,8 +114,13 @@ class ArtifactEvaluator:
     # ------------------------------------------------------------------
 
     def _encode_image(self, image_path: Path):
-        """Load and return a PIL Image (BLIP processes image + question together)."""
-        return Image.open(image_path).convert("RGB")
+        """Load and return a PIL Image (BLIP processes image + question together).
+
+        Opens via context manager so the file descriptor is closed before
+        we return — the converted RGB copy is independent of the file handle.
+        """
+        with Image.open(image_path) as im:
+            return im.convert("RGB")
 
     def _ask(self, pil_image, question: str) -> str:
         """Run a single VQA query via BLIP and return the answer string."""
@@ -125,6 +130,29 @@ class ArtifactEvaluator:
             output = self._model.generate(**inputs, max_new_tokens=64)
         answer = self._tokenizer.decode(output[0], skip_special_tokens=True)
         return answer.strip()
+
+    def _ask_batch(self, pil_image, questions: list[str]) -> list[str]:
+        """
+        Run multiple VQA questions about the same image in a single forward
+        pass. Returns one answer per question, in input order.
+
+        The artifact evaluator uses this in two phases: presence checks
+        first (so we know which categories to skip), then a batched run
+        of the remaining quality questions. Two forward passes for up to
+        4 questions total, instead of up to 4 forward passes.
+        """
+        import torch
+        if not questions:
+            return []
+        inputs = self._tokenizer(
+            images=[pil_image] * len(questions),
+            text=questions,
+            return_tensors="pt",
+            padding=True,
+        )
+        with torch.no_grad():
+            outputs = self._model.generate(**inputs, max_new_tokens=64)
+        return [a.strip() for a in self._tokenizer.batch_decode(outputs, skip_special_tokens=True)]
 
     @staticmethod
     def _is_yes(answer: str) -> bool:
@@ -154,7 +182,7 @@ class ArtifactEvaluator:
 
     def evaluate(self, generated_image_path: str | Path) -> ArtifactResult:
         """
-        Assess the generated image for common AI artifacts via Moondream VQA.
+        Assess the generated image for common AI artifacts via BLIP-VQA.
 
         Parameters
         ----------
@@ -172,23 +200,34 @@ class ArtifactEvaluator:
             answers         = {}
             flagged         = []
 
-            for check in ARTIFACT_CHECKS:
+            # --- Phase 1: presence checks ---
+            # Only some categories (currently hands_fingers) have a presence
+            # gate. Batch all presence questions into a single forward pass.
+            presence_checks = [c for c in ARTIFACT_CHECKS if "presence" in c]
+            presence_qs     = [c["presence"] for c in presence_checks]
+            presence_answers = self._ask_batch(enc_image, presence_qs)
+
+            skipped_names: set[str] = set()
+            for check, presence_ans in zip(presence_checks, presence_answers):
                 name = check["name"]
+                answers[f"{name}_presence"] = presence_ans
+                logger.debug("[%s] presence → %s", name, presence_ans)
+                if self._is_no(presence_ans):
+                    # Body part not in frame — skip, don't flag.
+                    category_scores[name] = "skipped"
+                    skipped_names.add(name)
+                    logger.debug("[%s] skipped — not visible in frame", name)
 
-                # Step 1 — presence check (optional, only for hands)
-                if "presence" in check:
-                    presence_ans = self._ask(enc_image, check["presence"])
-                    answers[f"{name}_presence"] = presence_ans
-                    logger.debug("[%s] presence → %s", name, presence_ans)
+            # --- Phase 2: quality checks for surviving categories ---
+            # Categories that don't have a presence gate always run, plus the
+            # ones whose presence answer was "yes". Batch all quality
+            # questions into a second forward pass.
+            quality_checks = [c for c in ARTIFACT_CHECKS if c["name"] not in skipped_names]
+            quality_qs     = [c["quality"] for c in quality_checks]
+            quality_answers = self._ask_batch(enc_image, quality_qs)
 
-                    if self._is_no(presence_ans):
-                        # Body part not in frame — skip, don't flag
-                        category_scores[name] = "skipped"
-                        logger.debug("[%s] skipped — not visible in frame", name)
-                        continue
-
-                # Step 2 — quality check
-                quality_ans = self._ask(enc_image, check["quality"])
+            for check, quality_ans in zip(quality_checks, quality_answers):
+                name = check["name"]
                 answers[f"{name}_quality"] = quality_ans
                 logger.debug("[%s] quality → %s", name, quality_ans)
 

@@ -1,11 +1,11 @@
 # evaluators/style.py
 #
-# Evaluates the visual style and realism of a generated image using Moondream2.
+# Evaluates the visual style and realism of a generated image using BLIP-VQA.
 #
 # This evaluator fills a gap that BLAST previously had entirely:
 #   CLIP cannot reliably distinguish photorealistic from cartoon/anime/illustrated
 #   because its embeddings conflate visual style with semantic content.
-#   Moondream directly answers style questions from the image content.
+#   A VQA model directly answers style questions from the image content.
 #
 # What it checks:
 #   1. Realism class  — photorealistic | anime | cartoon | illustration |
@@ -21,11 +21,12 @@
 #   overall_status  : pass | mismatch | error
 #
 # Limitations:
-#   - Moondream2 (1.8B) may mis-classify borderline styles (e.g. hyper-realistic
+#   - BLIP-VQA-base may mis-classify borderline styles (e.g. hyper-realistic
 #     CGI vs photograph).
-#   - CPU inference: ~10–30s per image.
+#   - CPU inference: ~10–30s per image (two VQA forward passes).
 #
-# Model is shared from run_eval.py / batch_runner.py to avoid loading it twice.
+# Model is shared from run_eval.py / batch_runner.py via pipeline/vqa_loader.py
+# to avoid loading it three times across the artifact / safety / style evaluators.
 
 from __future__ import annotations
 
@@ -66,7 +67,7 @@ class StyleResult:
     is_photorealistic: bool     # True if detected style is photorealistic
     style_match: Optional[bool] # True/False if prompt specified a style; None if ambiguous
     overall_status: str         # pass | mismatch | error
-    answers: dict               # raw Moondream answer strings
+    answers: dict               # raw BLIP-VQA answer strings
     error: Optional[str]
 
     def to_dict(self) -> dict:
@@ -79,24 +80,31 @@ class StyleResult:
 
 class StyleEvaluator:
     """
-    Moondream2-based style and realism evaluator.
+    BLIP-VQA-based style and realism evaluator.
 
-    Accepts the pre-loaded Moondream model and tokenizer from the shared
-    loader to avoid loading the model multiple times.
+    Accepts the pre-loaded BLIP model and processor from the shared
+    loader (pipeline/vqa_loader.py) to avoid loading the model multiple
+    times. The constructor kwarg is named `tokenizer=` for backwards
+    compatibility, but the value passed is a `BlipProcessor`.
     """
 
     def __init__(self, model, tokenizer) -> None:
         self._model     = model
         self._tokenizer = tokenizer
-        logger.info("StyleEvaluator ready (Moondream2 VQA)")
+        logger.info("StyleEvaluator ready (BLIP-VQA)")
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
     def _encode_image(self, image_path: Path):
-        """Load and return a PIL Image (BLIP processes image + question together)."""
-        return Image.open(image_path).convert("RGB")
+        """Load and return a PIL Image (BLIP processes image + question together).
+
+        Opens via context manager so the file descriptor is closed before
+        we return — the converted RGB copy is independent of the file handle.
+        """
+        with Image.open(image_path) as im:
+            return im.convert("RGB")
 
     def _ask(self, pil_image, question: str) -> str:
         """Run a single VQA query via BLIP and return the answer string."""
@@ -106,6 +114,24 @@ class StyleEvaluator:
             output = self._model.generate(**inputs, max_new_tokens=64)
         answer = self._tokenizer.decode(output[0], skip_special_tokens=True)
         return answer.strip()
+
+    def _ask_batch(self, pil_image, questions: list[str]) -> list[str]:
+        """
+        Run multiple VQA questions about the same image in a single forward
+        pass. See safety.py / artifact.py for full notes on the trade-off.
+        """
+        import torch
+        if not questions:
+            return []
+        inputs = self._tokenizer(
+            images=[pil_image] * len(questions),
+            text=questions,
+            return_tensors="pt",
+            padding=True,
+        )
+        with torch.no_grad():
+            outputs = self._model.generate(**inputs, max_new_tokens=64)
+        return [a.strip() for a in self._tokenizer.batch_decode(outputs, skip_special_tokens=True)]
 
     @staticmethod
     def _detect_prompt_style(prompt: str) -> Optional[str]:
@@ -123,7 +149,7 @@ class StyleEvaluator:
     @staticmethod
     def _parse_style_label(answer: str) -> str:
         """
-        Extract a normalised style label from Moondream's free-text answer.
+        Extract a normalised style label from the VQA model's free-text answer.
         """
         a = answer.lower()
         if any(w in a for w in ["photorealistic", "photograph", "real photo", "realistic photo"]):
@@ -168,26 +194,25 @@ class StyleEvaluator:
             enc_image = self._encode_image(path)
             answers   = {}
 
-            # Q1 — what style is this image?
-            style_ans = self._ask(
-                enc_image,
+            # Q1 (style classification) and Q2 (is_photograph) are independent
+            # — Q2 confirms Q1 for borderline cases, it does not condition on
+            # Q1's answer. We can therefore batch them into a single forward
+            # pass instead of running the encoder twice.
+            q1 = (
                 "Is this image photorealistic like a real photograph, or is it "
                 "stylized such as anime, cartoon, illustration, painting, or 3D render? "
-                "Answer in one sentence.",
+                "Answer in one sentence."
             )
+            q2 = "Does this image look like a real photograph taken with a camera?"
+            style_ans, photo_ans = self._ask_batch(enc_image, [q1, q2])
+
             answers["style_classification"] = style_ans
             logger.debug("[style] classification → %s", style_ans)
+            answers["is_photograph"] = photo_ans
+            logger.debug("[style] is_photograph → %s", photo_ans)
 
             style_label      = self._parse_style_label(style_ans)
             is_photorealistic = style_label in PHOTOREALISTIC_LABELS
-
-            # Q2 — photography realism check (confirm for borderline cases)
-            photo_ans = self._ask(
-                enc_image,
-                "Does this image look like a real photograph taken with a camera?",
-            )
-            answers["is_photograph"] = photo_ans
-            logger.debug("[style] is_photograph → %s", photo_ans)
 
             # Override is_photorealistic if Q2 gives a clear signal
             photo_lower = photo_ans.lower()

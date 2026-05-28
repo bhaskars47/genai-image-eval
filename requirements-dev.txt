@@ -1,0 +1,10 @@
+# Development dependencies for BLAST.
+# These are NOT required to run the pipeline — only to run the test harness.
+#
+#   pip install -r requirements-dev.txt
+#   pytest -v
+#
+# Keeping these separate from requirements.txt so the production install
+# stays minimal.
+
+pytest>=7.0

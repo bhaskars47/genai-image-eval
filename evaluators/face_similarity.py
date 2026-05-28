@@ -9,7 +9,7 @@
 #   3. Compute cosine similarity.
 #
 # Edge cases handled:
-#   - No face detected in either image  → status: "no_face_detected"
+#   - No face detected in either image  → status: "no_face"
 #   - Multiple faces in generated image → resolved via FACE_MULTI_FACE_POLICY
 #   - Model load failure                → raises RuntimeError at init time (fail fast)
 
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FaceSimilarityResult:
     score: Optional[float]          # cosine similarity, None if face not detected
-    status: str                     # excellent | acceptable | failed | no_face_detected | error
+    status: str                     # excellent | acceptable | failed | no_face | error
     model: str
     model_version: str
     faces_found_in_generated: int   # helps debug multi-face situations
@@ -58,6 +58,22 @@ class FaceSimilarityEvaluator:
 
     def __init__(self) -> None:
         self._app = self._load_model()
+        # Instance-level embedding cache, keyed on the resolved absolute path
+        # string. Two motivations:
+        #   1. A typical CSV reuses the same reference image across many rows
+        #      (e.g. refimage1.png on rows 1-3); re-running ArcFace detection
+        #      + embedding for each row is pure waste.
+        #   2. Generated images are unique per row, so caching them has no
+        #      cost penalty — the dict simply doesn't get a second hit for them.
+        # We intentionally do NOT use @functools.lru_cache on the bound method
+        # because that pattern holds a strong reference to `self` in a module-
+        # level cache and leaks the evaluator (well-known anti-pattern). An
+        # instance dict gives the same lookup semantics and dies with the
+        # evaluator.
+        # Caveat: keyed by resolved path, not content hash. If a file is
+        # mutated between rows of the same batch the cache will be stale.
+        # Realistic for a batch run? No — but worth knowing.
+        self._embedding_cache: dict[str, tuple[Optional[np.ndarray], int]] = {}
 
     def _load_model(self):
         try:
@@ -86,34 +102,50 @@ class FaceSimilarityEvaluator:
         Returns (embedding, num_faces_found).
         embedding is None if no face was detected.
         For multi-face images, applies FACE_MULTI_FACE_POLICY.
+
+        Results are cached on the resolved absolute path. The cache is filled
+        on both happy-path and no-face-detected outcomes so we don't redo the
+        same detection work on a reference image that has no detectable face.
         """
-        img = np.array(Image.open(image_path).convert("RGB"))
+        cache_key = str(Path(image_path).resolve())
+        cached = self._embedding_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        # Use a context manager so the file descriptor is released as soon
+        # as we have the pixel buffer — important for long batches where
+        # hundreds of images would otherwise pile up open handles.
+        with Image.open(image_path) as im:
+            img = np.array(im.convert("RGB"))
         faces = self._app.get(img)
 
+        # Compute the result, then cache it at a single exit. This makes the
+        # cache write impossible to forget on any branch.
         if not faces:
-            return None, 0
-
-        if len(faces) == 1:
-            return faces[0].normed_embedding, 1
-
-        # Multiple faces — apply policy
-        policy = config.FACE_MULTI_FACE_POLICY
-        logger.warning(
-            "Multiple faces (%d) found in %s — applying policy: %s",
-            len(faces), image_path.name, policy,
-        )
-
-        if policy == "largest":
-            # bbox area = (x2-x1) * (y2-y1)
-            selected = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
-        elif policy == "highest_confidence":
-            selected = max(faces, key=lambda f: f.det_score)
-        elif policy == "fail":
-            return None, len(faces)
+            result: tuple[Optional[np.ndarray], int] = (None, 0)
+        elif len(faces) == 1:
+            result = (faces[0].normed_embedding, 1)
         else:
-            raise ValueError(f"Unknown FACE_MULTI_FACE_POLICY: {policy!r}")
+            # Multiple faces — apply policy
+            policy = config.FACE_MULTI_FACE_POLICY
+            logger.warning(
+                "Multiple faces (%d) found in %s — applying policy: %s",
+                len(faces), image_path.name, policy,
+            )
+            if policy == "largest":
+                # bbox area = (x2-x1) * (y2-y1)
+                selected = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+                result = (selected.normed_embedding, len(faces))
+            elif policy == "highest_confidence":
+                selected = max(faces, key=lambda f: f.det_score)
+                result = (selected.normed_embedding, len(faces))
+            elif policy == "fail":
+                result = (None, len(faces))
+            else:
+                raise ValueError(f"Unknown FACE_MULTI_FACE_POLICY: {policy!r}")
 
-        return selected.normed_embedding, len(faces)
+        self._embedding_cache[cache_key] = result
+        return result
 
     @staticmethod
     def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
@@ -168,7 +200,7 @@ class FaceSimilarityEvaluator:
                 logger.warning("No face detected in identity image: %s", identity_path.name)
                 return FaceSimilarityResult(
                     score=None,
-                    status="no_face_detected",
+                    status="no_face",
                     faces_found_in_generated=gen_faces,
                     error="No face detected in identity reference image",
                     **base,
@@ -178,7 +210,7 @@ class FaceSimilarityEvaluator:
                 logger.warning("No face detected in generated image: %s", generated_path.name)
                 return FaceSimilarityResult(
                     score=None,
-                    status="no_face_detected",
+                    status="no_face",
                     faces_found_in_generated=gen_faces,
                     error="No face detected in generated image",
                     **base,

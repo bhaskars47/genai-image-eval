@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 from datetime import datetime, timezone
@@ -47,7 +48,11 @@ def status_badge(status: str) -> str:
         "fail":       ("#fee2e2", "#991b1b", "Fail"),
         "error":      ("#f3f4f6", "#6b7280", "Error"),
     }
-    bg, fg, label = colors.get(status, ("#f3f4f6", "#6b7280", status.title()))
+    # The fallback path titlecases an unknown status string; escape it
+    # because evaluators could in principle emit anything (and we'd rather
+    # not have an "error: <script>" status panic the report).
+    fallback_label = html.escape(str(status).title()) if status else "Unknown"
+    bg, fg, label = colors.get(status, ("#f3f4f6", "#6b7280", fallback_label))
     return (
         f'<span style="background:{bg};color:{fg};padding:2px 10px;'
         f'border-radius:12px;font-size:12px;font-weight:600;">{label}</span>'
@@ -61,14 +66,36 @@ def fmt_score(score) -> str:
 
 
 def image_tag(path_str: str, alt: str = "") -> str:
-    """Return an <img> tag using a file:// URL, or a placeholder if path is empty."""
+    """Return an <img> tag using a file:// URL, or a placeholder if path is empty.
+
+    Path.as_uri() requires an absolute path. JSON files written from a CSV with
+    relative paths (the recommended portable form) store relative strings here,
+    so we resolve them against the current working directory before calling
+    as_uri(). The typical invocation is `python run_eval.py …` from the project
+    root, in which case CWD is already the right base.
+
+    Falls back to an "Image unavailable" placeholder when the resolved path
+    does not exist on disk — this prevents a missing file from raising
+    deep inside Path.as_uri() (some PyPy/Windows builds) and keeps the
+    report rendering even with broken references.
+    """
     if not path_str or not path_str.strip():
         return '<span style="color:#9ca3af;font-size:12px">No image</span>'
+
     p = Path(path_str)
-    # Use file:// so the browser can load local images when the report is opened locally
-    url = p.as_uri()
+    if not p.is_absolute():
+        p = (Path.cwd() / p).resolve()
+
+    if not p.exists():
+        return '<span style="color:#9ca3af;font-size:12px">Image unavailable</span>'
+
+    # Use file:// so the browser can load local images when the report is opened locally.
+    # Escape both attributes — file paths can legally contain & " < > and the alt text
+    # comes from caller-supplied row IDs / labels that we don't fully control.
+    url = html.escape(p.as_uri(), quote=True)
+    safe_alt = html.escape(alt, quote=True)
     return (
-        f'<img src="{url}" alt="{alt}" '
+        f'<img src="{url}" alt="{safe_alt}" '
         f'style="width:90px;height:90px;object-fit:cover;border-radius:6px;'
         f'border:1px solid #e5e7eb;" '
         f'onerror="this.style.display=\'none\';this.nextSibling.style.display=\'inline\'">'
@@ -128,9 +155,13 @@ def compute_summary(results: list[dict]) -> dict:
 def build_html(results: list[dict], generated_at: str) -> str:
     s = compute_summary(results)
 
+    # Numeric strings (`:.4f`) are safe — no escape needed.
     face_avg_str = f"{s['face_avg']:.4f}" if s["face_avg"] is not None else "N/A"
     clip_avg_str = f"{s['clip_avg']:.4f}" if s["clip_avg"] is not None else "N/A"
-    llm_str = ", ".join(s["llms"]) if s["llms"] else "—"
+    # LLM names come from the CSV — escape each before joining so a stray
+    # "<script>" in the LLM column can't escape the HTML context.
+    llm_str = ", ".join(html.escape(x) for x in s["llms"]) if s["llms"] else "—"
+    generated_at_safe = html.escape(generated_at)
 
     # Build rows
     rows_html = ""
@@ -141,43 +172,58 @@ def build_html(results: list[dict], generated_at: str) -> str:
         artf  = r.get("artifact") or {}
         safe  = r.get("safety") or {}
         style = r.get("style") or {}
+        # ref_img / gen_img go through image_tag(), which now escapes
+        # both the resolved URL and the alt attribute — pass raw paths.
         ref_img = r.get("identity_image", "")
         gen_img = r.get("generated_image", "")
-        prompt  = r.get("prompt", "")[:120] + ("…" if len(r.get("prompt","")) > 120 else "")
-        llm     = r.get("llm_used") or "—"
-        row_id  = r.get("id", "?")
-        evaluated_at = r.get("evaluated_at", "")[:19].replace("T", " ") if r.get("evaluated_at") else "—"
+        prompt_raw = r.get("prompt", "")
+        prompt  = prompt_raw[:120] + ("…" if len(prompt_raw) > 120 else "")
+        prompt_safe = html.escape(prompt)
+        llm_safe = html.escape(r.get("llm_used") or "—")
+        row_id_safe = html.escape(str(r.get("id", "?")))
+        evaluated_at_cell = (
+            html.escape(r.get("evaluated_at", "")[:19].replace("T", " "))
+            if r.get("evaluated_at") else "—"
+        )
 
         face_error = face.get("error") or ""
-        error_html = f'<div style="color:#dc2626;font-size:11px;margin-top:4px">⚠ {face_error}</div>' if face_error else ""
+        error_html = (
+            f'<div style="color:#dc2626;font-size:11px;margin-top:4px">⚠ {html.escape(face_error)}</div>'
+            if face_error else ""
+        )
 
-        # Quality cell
+        # Quality cell — blur_score/resolution are numeric but we format-default
+        # to "—"/"?" which are safe; still escape defensively because any dict
+        # value could in principle be a string passed through from upstream.
         if qual:
-            blur_str = f"Blur: {qual.get('blur_score','—')}"
-            res_str  = f"{qual.get('resolution_width','?')}×{qual.get('resolution_height','?')}"
+            blur_str = html.escape(f"Blur: {qual.get('blur_score','—')}")
+            res_str  = html.escape(f"{qual.get('resolution_width','?')}×{qual.get('resolution_height','?')}")
             qual_html = f'{fmt_score(None) if qual.get("overall_status")=="error" else ""}<div style="font-size:11px;color:#6b7280">{blur_str}<br>{res_str}</div><div style="margin-top:4px">{status_badge(qual.get("overall_status","error"))}</div>'
         else:
             qual_html = status_badge("error")
 
-        # Artifact cell
+        # Artifact cell — flagged_categories is a list of evaluator-emitted
+        # enum strings (hands_fingers / face_structure / eyes). Escape each
+        # before join in case an evaluator ever returns free-text.
         if artf:
             flagged = artf.get("flagged_categories") or []
-            flag_str = ", ".join(flagged) if flagged else "none"
+            flag_str = ", ".join(html.escape(str(x)) for x in flagged) if flagged else "none"
             artf_html = f'<div style="font-size:11px;color:#6b7280;margin-bottom:4px">Flagged: {flag_str}</div>{status_badge(artf.get("overall_status","error"))}'
         else:
             artf_html = status_badge("error")
 
-        # Safety cell
+        # Safety cell — same pattern as artifact.
         if safe:
             flagged_s  = safe.get("flagged_categories") or []
-            flag_str_s = ", ".join(flagged_s) if flagged_s else "none"
+            flag_str_s = ", ".join(html.escape(str(x)) for x in flagged_s) if flagged_s else "none"
             safe_html  = f'<div style="font-size:11px;color:#6b7280;margin-bottom:4px">Flagged: {flag_str_s}</div>{status_badge(safe.get("overall_status","error"))}'
         else:
             safe_html = status_badge("error")
 
-        # Style cell
+        # Style cell — style_label is a parsed enum but the parser falls back
+        # to "other"/free-text on unrecognised answers; escape defensively.
         if style:
-            style_label = style.get("style_label", "unknown")
+            style_label_safe = html.escape(style.get("style_label", "unknown"))
             style_match = style.get("style_match")
             style_status = style.get("overall_status", "error")
             match_str = ""
@@ -186,7 +232,7 @@ def build_html(results: list[dict], generated_at: str) -> str:
             elif style_match is True:
                 match_str = '<div style="font-size:10px;color:#059669;margin-top:2px">✓ style match</div>'
             style_html = (
-                f'<div style="font-size:11px;color:#6b7280;margin-bottom:4px">{style_label}</div>'
+                f'<div style="font-size:11px;color:#6b7280;margin-bottom:4px">{style_label_safe}</div>'
                 f'{status_badge(style_status)}'
                 f'{match_str}'
             )
@@ -195,11 +241,11 @@ def build_html(results: list[dict], generated_at: str) -> str:
 
         rows_html += f"""
         <tr>
-          <td style="font-weight:600;white-space:nowrap">{row_id}</td>
-          <td style="max-width:180px;font-size:12px;color:#374151">{prompt}</td>
+          <td style="font-weight:600;white-space:nowrap">{row_id_safe}</td>
+          <td style="max-width:180px;font-size:12px;color:#374151">{prompt_safe}</td>
           <td style="text-align:center">{image_tag(ref_img, "reference")}</td>
           <td style="text-align:center">{image_tag(gen_img, "generated")}</td>
-          <td style="text-align:center;font-size:12px">{llm}</td>
+          <td style="text-align:center;font-size:12px">{llm_safe}</td>
           <td style="text-align:center">
             {fmt_score(face.get("score"))}<br>
             <div style="margin-top:4px">{status_badge(face.get("status","error"))}</div>
@@ -208,17 +254,19 @@ def build_html(results: list[dict], generated_at: str) -> str:
           <td style="text-align:center">
             {fmt_score(clip.get("score"))}<br>
             <div style="margin-top:4px">{status_badge(clip.get("status","error"))}</div>
-            {f'<div style="margin-top:4px;font-size:10px;color:#6b7280">⚡ {clip.get("chunks_used")} chunks · ~{clip.get("token_count")} tokens</div>' if clip.get("chunks_used", 1) > 1 else ""}
+            {f'<div style="margin-top:4px;font-size:10px;color:#6b7280">⚡ {int(clip.get("chunks_used") or 0)} chunks · ~{int(clip.get("token_count") or 0)} tokens</div>' if clip.get("chunks_used", 1) > 1 else ""}
           </td>
           <td style="text-align:center">{qual_html}</td>
           <td style="text-align:center">{artf_html}</td>
           <td style="text-align:center">{safe_html}</td>
           <td style="text-align:center">{style_html}</td>
-          <td style="font-size:11px;color:#6b7280;white-space:nowrap">{evaluated_at}</td>
+          <td style="font-size:11px;color:#6b7280;white-space:nowrap">{evaluated_at_cell}</td>
         </tr>
         """
 
-    html = f"""<!DOCTYPE html>
+    # NB: local name must not be `html` — that would shadow the imported
+    # `html` module used throughout this function for escaping.
+    html_doc = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -254,7 +302,7 @@ def build_html(results: list[dict], generated_at: str) -> str:
 
 <div class="header">
   <h1>BLAST Evaluation Report</h1>
-  <p>Identity-Preserving Image Generation · Generated {generated_at} · {s['total']} rows · Models: {llm_str}</p>
+  <p>Identity-Preserving Image Generation · Generated {generated_at_safe} · {s['total']} rows · Models: {llm_str}</p>
 </div>
 
 <div class="body">
@@ -393,13 +441,13 @@ def build_html(results: list[dict], generated_at: str) -> str:
 </div><!-- /.body -->
 
 <div class="footer">
-  BLAST · Face: insightface/buffalo_l · Prompt: openclip/ViT-B-32 · Quality: OpenCV Laplacian · Artifacts + Safety + Style: blip-vqa-base · Report generated {generated_at}
+  BLAST · Face: insightface/buffalo_l · Prompt: openclip/ViT-B-32 · Quality: OpenCV Laplacian · Artifacts + Safety + Style: blip-vqa-base · Report generated {generated_at_safe}
 </div>
 
 </body>
 </html>"""
 
-    return html
+    return html_doc
 
 
 # ---------------------------------------------------------------------------
@@ -430,10 +478,12 @@ def main():
     print(f"Loaded {len(results)} result(s).")
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    html = build_html(results, generated_at)
+    # Local name renamed away from `html` to avoid accidentally shadowing
+    # the imported `html` module in this scope (mirrors build_html()).
+    html_doc = build_html(results, generated_at)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html, encoding="utf-8")
+    output_path.write_text(html_doc, encoding="utf-8")
     print(f"Report written → {output_path.resolve()}")
 
 

@@ -118,21 +118,21 @@ def run_batch(
         quality_evaluator = QualityEvaluator()
 
     if artifact_evaluator is None or safety_evaluator is None or style_evaluator is None:
-        from pipeline.moondream_loader import load_moondream
-        logger.info("Loading Moondream2 for artifact / safety / style evaluators…")
-        md_model, md_tokenizer = load_moondream()
+        from pipeline.vqa_loader import load_vqa
+        logger.info("Loading BLIP-VQA for artifact / safety / style evaluators…")
+        vqa_model, vqa_processor = load_vqa()
 
     if artifact_evaluator is None:
         from evaluators.artifact import ArtifactEvaluator
-        artifact_evaluator = ArtifactEvaluator(model=md_model, tokenizer=md_tokenizer)
+        artifact_evaluator = ArtifactEvaluator(model=vqa_model, tokenizer=vqa_processor)
 
     if safety_evaluator is None:
         from evaluators.safety import SafetyEvaluator
-        safety_evaluator = SafetyEvaluator(model=md_model, tokenizer=md_tokenizer)
+        safety_evaluator = SafetyEvaluator(model=vqa_model, tokenizer=vqa_processor)
 
     if style_evaluator is None:
         from evaluators.style import StyleEvaluator
-        style_evaluator = StyleEvaluator(model=md_model, tokenizer=md_tokenizer)
+        style_evaluator = StyleEvaluator(model=vqa_model, tokenizer=vqa_processor)
 
     results = []
 
@@ -284,7 +284,14 @@ def _error_result(
     evaluated_at: str,
     llm_used: str | None = None,
 ) -> dict:
-    """Return a result dict that records a row-level failure without scores."""
+    """
+    Return a result dict that records a row-level failure without scores.
+
+    All six evaluator keys are populated with a shape compatible with the
+    happy-path schema (status="error") so downstream consumers
+    (run_eval._print_summary, generate_report.build_html) can index
+    r["quality"], r["artifact"], etc. without KeyError-ing on error rows.
+    """
     return {
         "id": row_id,
         "prompt": prompt,
@@ -306,6 +313,38 @@ def _error_result(
             "model_version": None,
             "clip_truncated": False,
             "token_count": None,
+            "chunks_used": 0,
+            "error": error_msg,
+        },
+        "quality": {
+            "blur_score": None,
+            "blur_status": "error",
+            "resolution_width": None,
+            "resolution_height": None,
+            "resolution_status": "error",
+            "overall_status": "error",
+            "error": error_msg,
+        },
+        "artifact": {
+            "overall_status": "error",
+            "flagged_categories": [],
+            "category_scores": {},
+            "answers": {},
+            "error": error_msg,
+        },
+        "safety": {
+            "overall_status": "error",
+            "flagged_categories": [],
+            "category_scores": {},
+            "answers": {},
+            "error": error_msg,
+        },
+        "style": {
+            "style_label": "unknown",
+            "is_photorealistic": False,
+            "style_match": None,
+            "overall_status": "error",
+            "answers": {},
             "error": error_msg,
         },
         "evaluated_at": evaluated_at,

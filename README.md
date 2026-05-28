@@ -61,7 +61,9 @@ Deepeval/
 ├── run_eval.py                  # CLI entry point — generate + evaluate
 ├── config.py                    # Central config: models, thresholds, paths
 ├── requirements.txt
+├── requirements-dev.txt         # pytest (dev only — not needed to run the pipeline)
 ├── sample_input.csv             # Example CSV manifest
+├── .gitignore
 │
 ├── evaluators/
 │   ├── face_similarity.py       # InsightFace / ArcFace — reference vs generated
@@ -74,7 +76,12 @@ Deepeval/
 ├── pipeline/
 │   ├── batch_runner.py          # Reads CSV, runs all evaluators, writes JSON
 │   ├── image_generator.py       # GeminiImageGenerator + OpenAIImageGenerator
-│   └── moondream_loader.py      # Loads BLIP-VQA model (shared across 3 evaluators)
+│   └── vqa_loader.py            # Loads BLIP-VQA model (shared across 3 evaluators)
+│
+├── tests/                       # pytest suite — smoke / thresholds / VQA parsers
+│   ├── test_smoke.py            # CSV plumbing + _error_result schema
+│   ├── test_thresholds.py       # Score-to-status boundary tests
+│   └── test_vqa_parsers.py      # BLIP-answer parser fixture corpus
 │
 ├── generate_report.py           # Standalone HTML report generator
 ├── referenceimages/             # Input: reference identity photos
@@ -107,6 +114,23 @@ On first run, models are downloaded automatically:
 - InsightFace `buffalo_l` — ~300 MB → `~/.insightface/models/buffalo_l/`
 - OpenCLIP `ViT-B-32/openai` — ~350 MB → `~/.cache/huggingface/`
 - BLIP-VQA base — ~450 MB → `~/.cache/huggingface/`
+
+---
+
+## Testing
+
+The repo ships a `pytest` suite that covers CSV/path/error-result plumbing,
+threshold buckets, and the BLIP-VQA answer parsers. The suite is pure-logic —
+none of the tests load ML weights, so they run in under a second.
+
+```bash
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+Expected: 103 passing tests (or 77 + 26 skipped if `torch` is not installed —
+the threshold tests use `pytest.importorskip("torch")` and are skipped cleanly
+on a minimal install).
 
 ---
 
@@ -167,6 +191,9 @@ row_002,A cinematic headshot with dramatic lighting,referenceimages/refimage1.pn
 - `generated_image` can be empty — the generator fills it in and writes the path back.
 - Rows that already have a `generated_image` path are **skipped** during generation.
 - The CSV is updated **in place** after generation — it is the single source of truth.
+  Writes are atomic (tmp file + `os.replace`), and a `.bak` of the pre-generation
+  manifest is preserved alongside the CSV on the first write. A Ctrl-C or crash
+  mid-generation therefore cannot truncate the source CSV.
 
 ### For evaluate only (no `--generate`)
 
@@ -211,8 +238,8 @@ One JSON file per row, written to `--output-dir`. Example (`results/.../row_001.
   "id": "row_001",
   "prompt": "A royal warrior portrait in golden armor",
   "llm_used": "Gemini",
-  "identity_image": "/path/to/referenceimages/refimage1.png",
-  "generated_image": "/path/to/outputimage/outputimage1.png",
+  "identity_image": "referenceimages/refimage1.png",
+  "generated_image": "outputimage/outputimage1.png",
   "face_similarity": {
     "score": 0.5854,
     "status": "acceptable",

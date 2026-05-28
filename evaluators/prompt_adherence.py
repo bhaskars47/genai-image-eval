@@ -167,7 +167,10 @@ class PromptAdherenceEvaluator:
         return features[0].cpu().numpy()
 
     def _encode_image(self, image_path: Path) -> np.ndarray:
-        img = Image.open(image_path).convert("RGB")
+        # Context-manager open so the underlying file handle is released as
+        # soon as convert() returns the in-memory RGB copy.
+        with Image.open(image_path) as im:
+            img = im.convert("RGB")
         tensor = self._preprocess(img).unsqueeze(0)
         with torch.no_grad():
             features = self._model.encode_image(tensor)

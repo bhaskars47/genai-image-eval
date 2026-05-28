@@ -27,6 +27,7 @@ import argparse
 import csv
 import logging
 import os
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -137,11 +138,25 @@ def _generate_images(csv_path: Path, api_key: str, provider: str, logger) -> Pat
 
             updated_rows.append(row)
 
-    # Write all rows (with generated_image now filled in) back to the SAME CSV
-    with csv_path.open("w", newline="", encoding="utf-8") as f:
+    # Write all rows (with generated_image now filled in) back to the SAME CSV.
+    # Use a temp file + os.replace so the original CSV is never left truncated
+    # if the process dies mid-write. os.replace is atomic on POSIX and Windows.
+    # On the first successful write per session, also keep a .bak alongside
+    # so the pre-generation manifest can be recovered.
+    backup_path = csv_path.with_suffix(csv_path.suffix + ".bak")
+    if not backup_path.exists():
+        try:
+            shutil.copy2(csv_path, backup_path)
+            logger.info("Backup of original CSV → %s", backup_path)
+        except Exception as exc:
+            logger.warning("Could not write CSV backup (%s): %s", backup_path, exc)
+
+    tmp_path = csv_path.with_suffix(csv_path.suffix + ".tmp")
+    with tmp_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(updated_rows)
+    os.replace(tmp_path, csv_path)  # atomic swap
 
     logger.info(
         "Generation complete: %d image(s) generated. CSV updated: %s",
@@ -400,19 +415,21 @@ def main() -> None:
     from evaluators.artifact import ArtifactEvaluator
     from evaluators.safety import SafetyEvaluator
     from evaluators.style import StyleEvaluator
-    from pipeline.moondream_loader import load_moondream
+    from pipeline.vqa_loader import load_vqa
 
     logger.info("Loading evaluation models…")
     face_evaluator    = FaceSimilarityEvaluator()
     prompt_evaluator  = PromptAdherenceEvaluator()
     quality_evaluator = QualityEvaluator()
 
-    # VQA model (BLIP) is loaded once and shared across artifact, safety, style
+    # BLIP-VQA is loaded once and shared across artifact, safety, style.
+    # The constructor kwarg is named `tokenizer=` for backwards compatibility,
+    # but the value is actually a BlipProcessor.
     logger.info("Loading VQA model (shared across artifact / safety / style)…")
-    md_model, md_tokenizer = load_moondream()
-    artifact_evaluator = ArtifactEvaluator(model=md_model, tokenizer=md_tokenizer)
-    safety_evaluator   = SafetyEvaluator(model=md_model, tokenizer=md_tokenizer)
-    style_evaluator    = StyleEvaluator(model=md_model, tokenizer=md_tokenizer)
+    vqa_model, vqa_processor = load_vqa()
+    artifact_evaluator = ArtifactEvaluator(model=vqa_model, tokenizer=vqa_processor)
+    safety_evaluator   = SafetyEvaluator(model=vqa_model, tokenizer=vqa_processor)
+    style_evaluator    = StyleEvaluator(model=vqa_model, tokenizer=vqa_processor)
     logger.info("All models ready. Starting batch…")
 
     from pipeline.batch_runner import run_batch

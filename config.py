@@ -109,7 +109,7 @@ OPENAI_IMAGE_SIZE = "1024x1024"
 OPENAI_IMAGE_QUALITY = "medium"
 
 # ---------------------------------------------------------------------------
-# Moondream (VQA-based artifact, safety, style evaluators)
+# BLIP-VQA (shared by artifact, safety, and style evaluators)
 # ---------------------------------------------------------------------------
 
 # BLIP-VQA base: ~450MB, standard transformers, no trust_remote_code.

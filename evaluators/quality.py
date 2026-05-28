@@ -65,8 +65,10 @@ class QualityEvaluator:
         import cv2
         img = cv2.imread(str(image_path))
         if img is None:
-            # Fallback: load via PIL and convert
-            pil = Image.open(image_path).convert("RGB")
+            # Fallback: load via PIL and convert. Context-manager open so the
+            # source file handle is released before we hand bytes to cv2.
+            with Image.open(image_path) as pil_im:
+                pil = pil_im.convert("RGB")
             img = np.array(pil)[:, :, ::-1]  # RGB → BGR for OpenCV
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         return float(cv2.Laplacian(gray, cv2.CV_64F).var())
